@@ -15,7 +15,7 @@ TYPE_MAPPING = {
     "fee": "Fee",
     "sell": "Sell",
     "staking_reward": "Staking",
-    "trade": "Sell",  # Assuming trade is a sell for simplicity
+    "trade": "trade",
     "Send": "Move",
 }
 
@@ -100,6 +100,40 @@ def convert_csv():
                     row["Out Amount"],
                     row["IN Amount"],
                     ""
+                ])
+            elif transaction_type == "trade":  # Handle "trade" as Sell and Buy
+                # Sell Transaction
+                dali_out_writer.writerow([
+                    txid,
+                    timestamp,
+                    row["Out Currency"],
+                    exchange,
+                    "unknown", 
+                    "Sell",
+                    "__unknown",
+                    row["Out Amount"],
+                    row["Fee Amount"],  # Assuming fee is in the "out" currency
+                    "",  # Calculate and fill crypto_out_with_fee later if needed
+                    "",  # No fiat_out_no_fee
+                    "",  # No fiat_fee
+                    "Trade: Sell side"
+                ])
+
+                # Buy Transaction
+                dali_in_writer.writerow([
+                    f"{txid}/buy",  # Unique ID with suffix to distinguish
+                    timestamp,
+                    row["IN Currency"],
+                    exchange,
+                    "unknown",
+                    "Buy",
+                    "__unknown",
+                    row["IN Amount"],
+                    "",  # No crypto fee for buy side
+                    "",  # No fiat_in_no_fee
+                    "",  # No fiat_in_with_fee 
+                    "",  # No fiat_fee
+                    "Trade: Buy side"
                 ])
             else: 
                 print(f"Skipping unknown transaction type: {row['Type']}")
