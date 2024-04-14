@@ -19,6 +19,22 @@ TYPE_MAPPING = {
     "Send": "Move",
 }
 
+def format_timestamp(timestamp_str):
+    # Handle the 'Z' at the end of the timestamp
+    if timestamp_str.endswith("Z"):
+        timestamp_value = datetime.fromisoformat(timestamp_str[:-1] + "+00:00")
+    else:
+        timestamp_value = datetime.fromisoformat(timestamp_str)
+    return timestamp_value.strftime("%Y-%m-%d %H:%M:%S%z")
+
+def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
+    if in_currency == "USD":
+        return str(float(in_amount) / float(out_amount))
+    elif out_currency == "USD":
+        return str(float(out_amount) / float(in_amount))
+    else:
+        return "__unknown"
+
 def convert_csv():
     with open(ZENLEDGER_CSV_PATH, "r", encoding="utf-8") as zenledger_file, \
          open(DALI_IN_CSV_PATH, "w", encoding="utf-8") as dali_in_file, \
@@ -37,23 +53,11 @@ def convert_csv():
         dali_intra_writer.writerow(["Unique ID", "Timestamp", "Asset", "From Exchange", "From Holder", "To Exchange", "To Holder", "Spot Price", "Crypto Sent", "Crypto Received", "Notes"])
 
         for row in zenledger_reader:
-            # Handle the 'Z' at the end of the timestamp
-            if row["Timestamp"].endswith("Z"):
-                timestamp_value = datetime.fromisoformat(row["Timestamp"][:-1] + "+00:00")
-            else:
-                timestamp_value = datetime.fromisoformat(row["Timestamp"])
-            timestamp = timestamp_value.strftime("%Y-%m-%d %H:%M:%S%z")
+            timestamp = format_timestamp(row["Timestamp"])
             exchange = row["Exchange(optional)"]
             txid = row["Txid"]
             transaction_type = TYPE_MAPPING.get(row["Type"], "Unknown")
-
-            # Calculate spot price if one currency is USD
-            if row["IN Currency"] == "USD":
-                spot_price = str(float(row["IN Amount"]) / float(row["Out Amount"])) 
-            elif row["Out Currency"] == "USD":
-                spot_price = str(float(row["Out Amount"]) / float(row["IN Amount"]))
-            else:
-                spot_price = "__unknown"
+            spot_price = calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"])
 
             if transaction_type in ["Buy", "Interest", "Staking", "Deposit"]:
                 dali_in_writer.writerow([
