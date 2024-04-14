@@ -41,12 +41,18 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
         return "__unknown"
 
 def prepare_common_fields(row):
+    if row["Fee Currency"] == "USD":
+        fee = {"USD Fee": row["Fee Amount"]}
+    else:
+        fee = {"Crypto Fee": row["Fee Amount"]}
+
     return {
         "Unique ID": row["Txid"],
         "Timestamp": format_timestamp(row["Timestamp"]),
         "Exchange": row["Exchange(optional)"],
         "Holder": "unknown",  # not provided in the input
         "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
+        **fee
     }
 
 def convert_csv():
@@ -69,42 +75,37 @@ def convert_csv():
 
             if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
                 in_writer.writerow({
+                    "Transaction Type": transaction_type,
                     **common_fields,
                     "Asset": row["IN Currency"],
-                    "Transaction Type": transaction_type,
                     "Crypto In": row["IN Amount"],
-                    "Crypto Fee": row["Fee Amount"],
                     "USD In No Fee": row["Out Amount"],
                 })
             elif transaction_type in ["Send", "Sell", "Fee"]:
                 out_writer.writerow({
+                    "Transaction Type": transaction_type,
                     **common_fields,
                     "Asset": row["Out Currency"],
-                    "Transaction Type": transaction_type,
                     "Crypto Out No Fee": row["Out Amount"],
-                    "Crypto Fee": row["Fee Amount"],
                     "USD Out No Fee": row["IN Amount"],
                 })
             elif transaction_type == "trade":  # Handle "trade" as Sell and Buy
-                # Sell Transaction
                 out_writer.writerow({
+                    "Transaction Type": "Sell",
                     **common_fields,
                     "Asset": row["Out Currency"],
-                    "Transaction Type": "Sell",
                     "Crypto Out No Fee": row["Out Amount"],
-                    "Crypto Fee": row["Fee Amount"],  # Assuming fee is in the "out" currency
-                    "USD Fee": "",  # No fiat_fee
                     "Notes": "Trade: Sell side"
                 })
-                # Buy Transaction
                 in_writer.writerow({
+                    "Transaction Type": "Buy",
                     **common_fields,
                     "Unique ID": row["Txid"] + "/buy",  # Unique ID with suffix to distinguish
                     "Asset": row["IN Currency"],
-                    "Transaction Type": "Buy",
                     "Crypto In": row["IN Amount"],
-                    "Crypto Fee": "",  # No crypto fee for buy side
-                    "USD Fee": "",  # No fiat_fee
+                    # fee accounted for in Sell transaction
+                    "Crypto Fee": "",
+                    "USD Fee": "",
                     "Notes": "Trade: Buy side"
                 })
             else: 
