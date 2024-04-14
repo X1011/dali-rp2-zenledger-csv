@@ -35,6 +35,15 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
     else:
         return "__unknown"
 
+def prepare_common_fields(row):
+    return {
+        "Unique ID": row["Txid"],
+        "Timestamp": format_timestamp(row["Timestamp"]),
+        "Exchange": row["Exchange(optional)"],
+        "Holder": "unknown",  # not provided in the input
+        "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
+    }
+
 def convert_csv():
     with open(zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
          open(in_filename, "w", encoding="utf-8") as in_file, \
@@ -53,34 +62,23 @@ def convert_csv():
         intra_writer.writeheader()
 
         for row in zenledger_reader:
-            timestamp = format_timestamp(row["Timestamp"])
-            exchange = row["Exchange(optional)"]
-            txid = row["Txid"]
+            common_fields = prepare_common_fields(row)
             transaction_type = type_map.get(row["Type"], "Unknown")
-            spot_price = calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"])
 
             if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
                 in_writer.writerow({
-                    "Unique ID": txid,
-                    "Timestamp": timestamp,
+                    **common_fields,
                     "Asset": row["IN Currency"],
-                    "Exchange": exchange,
-                    "Holder": "unknown",
                     "Transaction Type": transaction_type,
-                    "Spot Price": spot_price,
                     "Crypto In": row["IN Amount"],
                     "Crypto Fee": row["Fee Amount"],
                     "USD In No Fee": row["Out Amount"],
                 })
             elif transaction_type in ["Send", "Sell", "Fee"]:
                 out_writer.writerow({
-                    "Unique ID": txid,
-                    "Timestamp": timestamp,
+                    **common_fields,
                     "Asset": row["Out Currency"],
-                    "Exchange": exchange,
-                    "Holder": "unknown",
                     "Transaction Type": transaction_type,
-                    "Spot Price": spot_price,
                     "Crypto Out No Fee": row["Out Amount"],
                     "Crypto Fee": row["Fee Amount"],
                     "USD Out No Fee": row["IN Amount"],
@@ -88,28 +86,20 @@ def convert_csv():
             elif transaction_type == "trade":  # Handle "trade" as Sell and Buy
                 # Sell Transaction
                 out_writer.writerow({
-                    "Unique ID": txid,
-                    "Timestamp": timestamp,
+                    **common_fields,
                     "Asset": row["Out Currency"],
-                    "Exchange": exchange,
-                    "Holder": "unknown", 
                     "Transaction Type": "Sell",
-                    "Spot Price": "__unknown",
                     "Crypto Out No Fee": row["Out Amount"],
                     "Crypto Fee": row["Fee Amount"],  # Assuming fee is in the "out" currency
                     "USD Fee": "",  # No fiat_fee
                     "Notes": "Trade: Sell side"
                 })
-
                 # Buy Transaction
                 in_writer.writerow({
-                    "Unique ID": f"{txid}/buy",  # Unique ID with suffix to distinguish
-                    "Timestamp": timestamp,
+                    **common_fields,
+                    "Unique ID": row["Txid"] + "/buy",  # Unique ID with suffix to distinguish
                     "Asset": row["IN Currency"],
-                    "Exchange": exchange,
-                    "Holder": "unknown",
                     "Transaction Type": "Buy",
-                    "Spot Price": "__unknown",
                     "Crypto In": row["IN Amount"],
                     "Crypto Fee": "",  # No crypto fee for buy side
                     "USD Fee": "",  # No fiat_fee
