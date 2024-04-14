@@ -1,3 +1,5 @@
+# Copyright 2024 Daniel Smith
+#
 import csv
 from datetime import datetime
 import argparse
@@ -9,7 +11,6 @@ args = parser.parse_args()
 
 in_filename    = "zenledger_manual_in.csv"
 out_filename   = "zenledger_manual_out.csv"
-intra_filename = "zenledger_manual_intra.csv"
 
 # Mapping ZenLedger transaction types to DaLI transaction types
 type_map = {
@@ -51,19 +52,16 @@ def prepare_common_fields(row):
 def convert_csv():
     with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
          open(in_filename, "w", encoding="utf-8") as in_file, \
-         open(out_filename, "w", encoding="utf-8") as out_file, \
-         open(intra_filename, "w", encoding="utf-8") as intra_file:
+         open(out_filename, "w", encoding="utf-8") as out_file:
 
         # Set up CSV writers
         # Timestamp, Type, IN Amount, IN Currency, Out Amount, Out Currency, Fee Amount, Fee Currency, Exchange(optional), US Based, Txid
         zenledger_reader = csv.DictReader(zenledger_file)
         in_writer = csv.DictWriter(in_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto In", "Crypto Fee", "USD In No Fee", "USD In With Fee", "USD Fee", "Notes"])
         out_writer = csv.DictWriter(out_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto Out No Fee", "Crypto Fee", "Crypto Out With Fee", "USD Out No Fee", "USD Fee", "Notes"])
-        intra_writer = csv.DictWriter(intra_file, fieldnames=["Unique ID", "Timestamp", "Asset", "From Exchange", "From Holder", "To Exchange", "To Holder", "Spot Price", "Crypto Sent", "Crypto Received", "Notes"])
 
         in_writer.writeheader()
         out_writer.writeheader()
-        intra_writer.writeheader()
 
         for row in zenledger_reader:
             common_fields = prepare_common_fields(row)
