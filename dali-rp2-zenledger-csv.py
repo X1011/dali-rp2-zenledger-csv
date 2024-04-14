@@ -9,14 +9,14 @@ DALI_INTRA_CSV_PATH = "dali_manual_intra.csv"
 
 # Mapping ZenLedger transaction types to DaLI transaction types
 TYPE_MAPPING = {
-    "Receive": "Deposit",
+    "Receive": "Receive",
+    "Send": "Send",
     "buy": "Buy",
-    "dividend_received": "Interest",
-    "fee": "Fee",
     "sell": "Sell",
-    "staking_reward": "Staking",
     "trade": "trade",
-    "Send": "Move",
+    "fee": "Fee",
+    "staking_reward": "Staking",
+    "dividend_received": "Interest",
 }
 
 def format_timestamp(timestamp_str):
@@ -58,7 +58,7 @@ def convert_csv():
             transaction_type = TYPE_MAPPING.get(row["Type"], "Unknown")
             spot_price = calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"])
 
-            if transaction_type in ["Buy", "Interest", "Staking", "Deposit"]:
+            if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
                 dali_in_writer.writerow({
                     "Unique ID": txid,
                     "Timestamp": timestamp,
@@ -71,7 +71,7 @@ def convert_csv():
                     "Crypto Fee": row["Fee Amount"],
                     "USD In No Fee": row["Out Amount"],
                 })
-            elif transaction_type in ["Sell", "Fee"]:
+            elif transaction_type in ["Send", "Sell", "Fee"]:
                 dali_out_writer.writerow({
                     "Unique ID": txid,
                     "Timestamp": timestamp,
@@ -83,19 +83,6 @@ def convert_csv():
                     "Crypto Out No Fee": row["Out Amount"],
                     "Crypto Fee": row["Fee Amount"],
                     "USD Out No Fee": row["IN Amount"],
-                })
-            elif transaction_type == "Move":
-                dali_intra_writer.writerow({
-                    "Unique ID": txid,
-                    "Timestamp": timestamp,
-                    "Asset": row["Out Currency"],
-                    "From Exchange": exchange,
-                    "From Holder": "unknown",
-                    "To Exchange": "unknown",  # Assuming destination exchange is unknown 
-                    "To Holder": "unknown",  # Assuming destination holder is unknown 
-                    "Spot Price": spot_price,
-                    "Crypto Sent": row["Out Amount"],
-                    "Crypto Received": row["IN Amount"],
                 })
             elif transaction_type == "trade":  # Handle "trade" as Sell and Buy
                 # Sell Transaction
