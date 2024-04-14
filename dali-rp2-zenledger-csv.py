@@ -2,13 +2,13 @@ import csv
 from datetime import datetime
 
 # Input and output file paths
-ZENLEDGER_CSV_PATH = "tx-zenledger_sample.csv"
-DALI_IN_CSV_PATH = "dali_manual_in.csv"
-DALI_OUT_CSV_PATH = "dali_manual_out.csv"
-DALI_INTRA_CSV_PATH = "dali_manual_intra.csv"
+zenledger_filename = "tx-zenledger_sample.csv"
+in_filename    = "zenledger_manual_in.csv"
+out_filename   = "zenledger_manual_out.csv"
+intra_filename = "zenledger_manual_intra.csv"
 
 # Mapping ZenLedger transaction types to DaLI transaction types
-TYPE_MAPPING = {
+type_map = {
     "Receive": "Receive",
     "Send": "Send",
     "buy": "Buy",
@@ -36,30 +36,30 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
         return "__unknown"
 
 def convert_csv():
-    with open(ZENLEDGER_CSV_PATH, "r", encoding="utf-8") as zenledger_file, \
-         open(DALI_IN_CSV_PATH, "w", encoding="utf-8") as dali_in_file, \
-         open(DALI_OUT_CSV_PATH, "w", encoding="utf-8") as dali_out_file, \
-         open(DALI_INTRA_CSV_PATH, "w", encoding="utf-8") as dali_intra_file:
+    with open(zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
+         open(in_filename, "w", encoding="utf-8") as in_file, \
+         open(out_filename, "w", encoding="utf-8") as out_file, \
+         open(intra_filename, "w", encoding="utf-8") as intra_file:
 
         # Set up CSV writers
         zenledger_reader = csv.DictReader(zenledger_file)
-        dali_in_writer = csv.DictWriter(dali_in_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto In", "Crypto Fee", "USD In No Fee", "USD In With Fee", "USD Fee", "Notes"])
-        dali_out_writer = csv.DictWriter(dali_out_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto Out No Fee", "Crypto Fee", "Crypto Out With Fee", "USD Out No Fee", "USD Fee", "Notes"])
-        dali_intra_writer = csv.DictWriter(dali_intra_file, fieldnames=["Unique ID", "Timestamp", "Asset", "From Exchange", "From Holder", "To Exchange", "To Holder", "Spot Price", "Crypto Sent", "Crypto Received", "Notes"])
+        in_writer = csv.DictWriter(in_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto In", "Crypto Fee", "USD In No Fee", "USD In With Fee", "USD Fee", "Notes"])
+        out_writer = csv.DictWriter(out_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto Out No Fee", "Crypto Fee", "Crypto Out With Fee", "USD Out No Fee", "USD Fee", "Notes"])
+        intra_writer = csv.DictWriter(intra_file, fieldnames=["Unique ID", "Timestamp", "Asset", "From Exchange", "From Holder", "To Exchange", "To Holder", "Spot Price", "Crypto Sent", "Crypto Received", "Notes"])
 
-        dali_in_writer.writeheader()
-        dali_out_writer.writeheader()
-        dali_intra_writer.writeheader()
+        in_writer.writeheader()
+        out_writer.writeheader()
+        intra_writer.writeheader()
 
         for row in zenledger_reader:
             timestamp = format_timestamp(row["Timestamp"])
             exchange = row["Exchange(optional)"]
             txid = row["Txid"]
-            transaction_type = TYPE_MAPPING.get(row["Type"], "Unknown")
+            transaction_type = type_map.get(row["Type"], "Unknown")
             spot_price = calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"])
 
             if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
-                dali_in_writer.writerow({
+                in_writer.writerow({
                     "Unique ID": txid,
                     "Timestamp": timestamp,
                     "Asset": row["IN Currency"],
@@ -72,7 +72,7 @@ def convert_csv():
                     "USD In No Fee": row["Out Amount"],
                 })
             elif transaction_type in ["Send", "Sell", "Fee"]:
-                dali_out_writer.writerow({
+                out_writer.writerow({
                     "Unique ID": txid,
                     "Timestamp": timestamp,
                     "Asset": row["Out Currency"],
@@ -86,7 +86,7 @@ def convert_csv():
                 })
             elif transaction_type == "trade":  # Handle "trade" as Sell and Buy
                 # Sell Transaction
-                dali_out_writer.writerow({
+                out_writer.writerow({
                     "Unique ID": txid,
                     "Timestamp": timestamp,
                     "Asset": row["Out Currency"],
@@ -101,7 +101,7 @@ def convert_csv():
                 })
 
                 # Buy Transaction
-                dali_in_writer.writerow({
+                in_writer.writerow({
                     "Unique ID": f"{txid}/buy",  # Unique ID with suffix to distinguish
                     "Timestamp": timestamp,
                     "Asset": row["IN Currency"],
