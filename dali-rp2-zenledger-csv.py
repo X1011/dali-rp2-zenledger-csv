@@ -1,8 +1,12 @@
 import csv
 from datetime import datetime
+import argparse
 
 # Input and output file paths
-zenledger_filename = "tx-zenledger_sample.csv"
+parser = argparse.ArgumentParser()
+parser.add_argument("zenledger_filename", help="Zenledger csv file", type=str)
+args = parser.parse_args()
+
 in_filename    = "zenledger_manual_in.csv"
 out_filename   = "zenledger_manual_out.csv"
 intra_filename = "zenledger_manual_intra.csv"
@@ -45,7 +49,7 @@ def prepare_common_fields(row):
     }
 
 def convert_csv():
-    with open(zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
+    with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
          open(in_filename, "w", encoding="utf-8") as in_file, \
          open(out_filename, "w", encoding="utf-8") as out_file, \
          open(intra_filename, "w", encoding="utf-8") as intra_file:
@@ -110,5 +114,3 @@ def convert_csv():
 
 if __name__ == "__main__":
     convert_csv()
-
-
