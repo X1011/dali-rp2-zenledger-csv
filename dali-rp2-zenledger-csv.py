@@ -64,7 +64,7 @@ def make_fee_transaction(row):
 
 def calculate_fee(row, asset_currency):
     amount = row["Fee Amount"]
-    if amount <= 0:
+    if (amount is None) or (float(amount) <= 0):
         return {}, []
 
     fee_entry = {}
@@ -111,15 +111,15 @@ def convert_trade(row):
         "Notes": "generated Buy-side of trade"
     }
 
+    fee_entry, fee_txs = calculate_fee(row, row["Out Currency"])
     out_tx = {
         "Transaction Type": "Sell",
         **make_common_fields(row, "-sell"),
         "Asset": row["Out Currency"],
         "Crypto Out No Fee": row["Out Amount"],
-        "Notes": "generated Sell-side of trade"
+        "Notes": "generated Sell-side of trade",
+        **fee_entry
     }
-
-    fee_txs = [make_fee_transaction(row)] if row["Fee Amount"] > 0 else []
 
     return [in_tx], [out_tx, *fee_txs]
 
