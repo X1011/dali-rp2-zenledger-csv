@@ -103,6 +103,21 @@ def write_fee_tx(row, in_writer, out_writer):
     if row["Fee Amount"] > 0:
         out_writer.writerow(prepare_fee_transaction(row))
 
+def convert_row(row, in_writer, out_writer):
+    transaction_type = type_map.get(row["Type"], "Unknown")
+    # Process trade transactions as two separate transactions (in and out), without duplicating fee
+    if transaction_type == "trade":
+        write_out_tx(row, out_writer)
+        write_in_tx(row, in_writer, out_writer)
+        write_fee_tx(row, in_writer, out_writer)
+    elif transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
+        write_in_tx(row, in_writer, out_writer)
+        write_fee_tx(row, in_writer, out_writer)
+    elif transaction_type in ["Send", "Sell", "Fee"]:
+        write_out_tx(row, out_writer)
+        write_fee_tx(row, in_writer, out_writer)
+    else:
+        print(f"Skipping unknown transaction type: {row['Type']}")
 
 def convert_csv():
     with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
@@ -119,21 +134,7 @@ def convert_csv():
         out_writer.writeheader()
 
         for row in zenledger_reader:
-            transaction_type = type_map.get(row["Type"], "Unknown")
-
-            # Process trade transactions as two separate transactions (in and out), without duplicating fee
-            if transaction_type == "trade":
-                write_out_tx(row, out_writer)
-                write_in_tx(row, in_writer, out_writer)
-                write_fee_tx(row, in_writer, out_writer)
-            elif transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
-                write_in_tx(row, in_writer, out_writer)
-                write_fee_tx(row, in_writer, out_writer)
-            elif transaction_type in ["Send", "Sell", "Fee"]:
-                write_out_tx(row, out_writer)
-                write_fee_tx(row, in_writer, out_writer)
-            else: 
-                print(f"Skipping unknown transaction type: {row['Type']}")
+            convert_row(row, in_writer, out_writer)
 
 if __name__ == "__main__":
     convert_csv()
