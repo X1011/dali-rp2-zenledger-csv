@@ -91,20 +91,8 @@ def write_out_tx(row, out_writer):
     })
 
 def write_fee_tx(row, in_writer, out_writer):
-    # Determine the fee currency and which writer to use
-    fee_currency = row["Fee Currency"]
-    if fee_currency == row["IN Currency"]:
-        fee_writer = in_writer
-    elif fee_currency == row["Out Currency"]:
-        fee_writer = out_writer
-    else:
-        # Handle the case when the fee currency is neither IN nor OUT
-        fee_writer = out_writer  # Or in_writer, depending on your business logic
-
-    # Write the fee transaction if there is a fee
     if row["Fee Amount"] > 0:
-        fee_transaction = prepare_fee_transaction(row)
-        fee_writer.writerow(fee_transaction)
+        out_writer.writerow(prepare_fee_transaction(row))
 
 def prepare_common_fields(row, asset_currency):
     fee_info = calculate_fee(row, asset_currency)
