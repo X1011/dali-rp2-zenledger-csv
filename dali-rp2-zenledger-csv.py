@@ -41,10 +41,12 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
         return "__unknown"
 
 def calculate_fee(row, asset_currency):
-    if row["Fee Currency"] == asset_currency:
+    if row["Fee Currency"] == "USD":
+        return {"USD Fee": row["Fee Amount"]}
+    elif row["Fee Currency"] == asset_currency:
         return {"Crypto Fee": row["Fee Amount"]}
     else:
-        return {"USD Fee": row["Fee Amount"]} if row["Fee Currency"] == "USD" else {}
+        return {}
 
 def prepare_fee_transaction(row, unique_id_suffix):
     return {
@@ -59,6 +61,50 @@ def prepare_fee_transaction(row, unique_id_suffix):
         "Crypto Fee": row["Fee Amount"] if row["Fee Currency"] != "USD" else None,
         "Notes": "Fee transaction"
     }
+
+def write_in_tx(row, in_writer, out_writer):
+    transaction_type = type_map.get(row["Type"], "Unknown")
+    asset_currency = row["IN Currency"]
+    common_fields = prepare_common_fields(row, asset_currency)
+
+    # Write the main in transaction
+    in_writer.writerow({
+        "Transaction Type": transaction_type,
+        **common_fields,
+        "Asset": asset_currency,
+        "Crypto In": row["IN Amount"],
+        "USD In No Fee": row["Out Amount"],
+    })
+
+def write_out_tx(row, out_writer):
+    transaction_type = type_map.get(row["Type"], "Unknown")
+    asset_currency = row["Out Currency"]
+    common_fields = prepare_common_fields(row, asset_currency)
+
+    # Write the main out transaction
+    out_writer.writerow({
+        "Transaction Type": transaction_type,
+        **common_fields,
+        "Asset": asset_currency,
+        "Crypto Out No Fee": row["Out Amount"],
+        "USD Out No Fee": row["IN Amount"],
+    })
+
+def write_fee_tx(row, in_writer, out_writer):
+    # Determine the fee currency and which writer to use
+    fee_currency = row["Fee Currency"]
+    if fee_currency == row["IN Currency"]:
+        fee_writer = in_writer
+    elif fee_currency == row["Out Currency"]:
+        fee_writer = out_writer
+    else:
+        # Handle the case when the fee currency is neither IN nor OUT
+        fee_writer = out_writer  # Or in_writer, depending on your business logic
+
+    # Write the fee transaction if there is a fee
+    if row["Fee Amount"] > 0:
+        fee_transaction = prepare_fee_transaction(row)
+        fee_writer.writerow(fee_transaction)
 
 def prepare_common_fields(row, asset_currency):
     fee_info = calculate_fee(row, asset_currency)
@@ -86,50 +132,19 @@ def convert_csv():
         out_writer.writeheader()
 
         for row in zenledger_reader:
-            # Determine Asset currency based on transaction type
-            asset_currency = row["IN Currency"] if transaction_type in ["Receive", "Buy", "Interest", "Staking"] else row["Out Currency"]
-            common_fields = prepare_common_fields(row, asset_currency)
-
-            # Check if a separate fee transaction is needed
-            if row["Fee Currency"] != asset_currency:
-                out_writer.writerow(prepare_fee_transaction(row, "FEE"))
             transaction_type = type_map.get(row["Type"], "Unknown")
 
-            if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
-                in_writer.writerow({
-                    "Transaction Type": transaction_type,
-                    **common_fields,
-                    "Asset": row["IN Currency"],
-                    "Crypto In": row["IN Amount"],
-                    "USD In No Fee": row["Out Amount"],
-                })
+            # Process trade transactions as two separate transactions (in and out), without duplicating fee
+            if transaction_type == "trade":
+                write_out_tx(row, out_writer)
+                write_in_tx(row, in_writer, out_writer)
+                write_fee_tx(row, in_writer, out_writer)
+            elif transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
+                write_in_tx(row, in_writer, out_writer)
+                write_fee_tx(row, in_writer, out_writer)
             elif transaction_type in ["Send", "Sell", "Fee"]:
-                out_writer.writerow({
-                    "Transaction Type": transaction_type,
-                    **common_fields,
-                    "Asset": row["Out Currency"],
-                    "Crypto Out No Fee": row["Out Amount"],
-                    "USD Out No Fee": row["IN Amount"],
-                })
-            elif transaction_type == "trade":  # Handle "trade" as Sell and Buy
-                out_writer.writerow({
-                    "Transaction Type": "Sell",
-                    **common_fields,
-                    "Asset": row["Out Currency"],
-                    "Crypto Out No Fee": row["Out Amount"],
-                    "Notes": "Trade: Sell side"
-                })
-                in_writer.writerow({
-                    "Transaction Type": "Buy",
-                    **common_fields,
-                    "Unique ID": row["Txid"] + "/buy",  # Unique ID with suffix to distinguish
-                    "Asset": row["IN Currency"],
-                    "Crypto In": row["IN Amount"],
-                    # fee accounted for in Sell transaction
-                    "Crypto Fee": "",
-                    "USD Fee": "",
-                    "Notes": "Trade: Buy side"
-                })
+                write_out_tx(row, out_writer)
+                write_fee_tx(row, in_writer, out_writer)
             else: 
                 print(f"Skipping unknown transaction type: {row['Type']}")
 
