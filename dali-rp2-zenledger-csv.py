@@ -127,12 +127,12 @@ def trade_transaction(row):
 def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
 
-    if transaction_type == "trade":
-        in_tx, out_tx = trade_transaction(row)
-    elif transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
+    if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
         in_tx, out_tx = in_transaction(row)
     elif transaction_type in ["Send", "Sell", "Fee"]:
         in_tx, out_tx = out_transaction(row)
+    elif transaction_type == "trade":
+        in_tx, out_tx = trade_transaction(row)
     else:
         print(f"Skipping unknown transaction type: {row['Type']}")
         return
