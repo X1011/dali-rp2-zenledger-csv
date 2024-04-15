@@ -58,43 +58,43 @@ def make_fee_transaction(row):
         "Notes": "Fee transaction"
     }
 
-def write_fee_tx(row, in_writer, out_writer):
-    if row["Fee Amount"] > 0:
-        out_writer.writerow(make_fee_transaction(row))
-
 def make_common_fields(row, id_suffix=''):
-    fee_info = calculate_fee(row, asset)
     return {
         "Unique ID": row["Txid"] + id_suffix,
         "Timestamp": format_timestamp(row["Timestamp"]),
         "Exchange": row["Exchange(optional)"],
         "Holder": "unknown",  # not provided in the input
         "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
-        **fee_info
     }
 
 def in_transaction(row, transaction_type):
     asset_currency = row["IN Currency"]
     common_fields = make_common_fields(row)
 
+    fee_info = calculate_fee(row, asset_currency) if row["Fee Amount"] > 0 else {}
+
     return [{
         "Transaction Type": transaction_type,
         **common_fields,
         "Asset": asset_currency,
         "Crypto In": row["IN Amount"],
-        "USD In No Fee": row["Out Amount"]
+        "USD In No Fee": row["Out Amount"],
+        **fee_info
     }], []
 
 def out_transaction(row, transaction_type):
     asset_currency = row["Out Currency"]
     common_fields = make_common_fields(row)
 
+    fee_info = calculate_fee(row, asset_currency) if row["Fee Amount"] > 0 else {}
+
     return [], [{
         "Transaction Type": transaction_type,
         **common_fields,
         "Asset": asset_currency,
         "Crypto Out No Fee": row["Out Amount"],
-        "USD Out No Fee": row["IN Amount"]
+        "USD Out No Fee": row["IN Amount"],
+        **fee_info
     }]
 
 def trade_transaction(row):
@@ -112,9 +112,9 @@ def trade_transaction(row):
         "Crypto Out No Fee": row["Out Amount"],
     }
 
-    fee_tx = make_fee_transaction(row)
+    fee_tx = make_fee_transaction(row) if row["Fee Amount"] > 0 else None
 
-    return [in_tx], [out_tx, fee_tx]
+    return [in_tx], [out_tx, fee_tx] if fee_tx else [out_tx]
 
 def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
