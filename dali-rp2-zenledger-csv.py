@@ -58,27 +58,31 @@ def make_fee_transaction(row):
         "Asset": currency,
         "Spot Price": "__unknown",
         "USD Fee":    amount if currency == "USD" else None,
-        "Crypto Fee": amount if currency != "USD" else None,
+        "Crypto Fee": amount if currency != "USD" else "0", # DalI requires explicit Crypto Fee for outgoing transactions
+        "Crypto Out No Fee": "0",
         "Notes": "generated Fee transaction"
     }
 
-def calculate_fee(row, asset_currency):
+def calculate_fee(row, asset_currency, outgoing: bool):
     amount = row["Fee Amount"]
     if (amount is None) or (float(amount) <= 0):
-        return {}, []
-
-    fee_entry = {}
-    if row["Fee Currency"] == "USD":
-        fee_entry = {"USD Fee": amount}
+        return {"Crypto Fee": "0"}, []
+    
+    elif row["Fee Currency"] == "USD":
+        # DalI requires an explicit Crypto Fee entry for outgoing transactions, but does not accept both Crypto and USD fee entries for incoming, so we need to special case it
+        if outgoing:
+            return {"USD Fee": amount, "Crypto Fee": "0"}, []
+        else:
+            return {"USD Fee": amount}, []
+    
     elif row["Fee Currency"] == asset_currency:
-        fee_entry = {"Crypto Fee": amount}
-
-    fee_txs = [] if fee_entry else [make_fee_transaction(row)]
-    return fee_entry, fee_txs
+        return {"Crypto Fee": amount}, []
+    else:
+        return {"Crypto Fee": "0"}, [make_fee_transaction(row)]
 
 def convert_incoming(row, transaction_type):
     asset_currency = row["IN Currency"]
-    fee_entry, fee_txs = calculate_fee(row, asset_currency)
+    fee_entry, fee_txs = calculate_fee(row, asset_currency, outgoing=False)
     
     return [{
         # override the transaction type for receive so DalI will accept it, then it should match it up with the outgoing side later by id
@@ -92,7 +96,7 @@ def convert_incoming(row, transaction_type):
 
 def convert_outgoing(row, transaction_type):
     asset_currency = row["Out Currency"]
-    fee_entry, fee_txs = calculate_fee(row, asset_currency)
+    fee_entry, fee_txs = calculate_fee(row, asset_currency, outgoing=True)
 
     return [], [{
         # override the transaction type for send so DalI will accept it, then it should match it up with the incoming side later by id
@@ -105,7 +109,7 @@ def convert_outgoing(row, transaction_type):
     }, *fee_txs]
 
 def convert_trade(row):
-    fee_entry, fee_txs = calculate_fee(row, row["Out Currency"])
+    fee_entry, fee_txs = calculate_fee(row, row["Out Currency"], outgoing=True)    
     out_tx = {
         "Transaction Type": "Sell",
         **make_common_fields(row, "-sell"),
@@ -114,7 +118,6 @@ def convert_trade(row):
         "Notes": "generated Sell-side of trade",
         **fee_entry
     }
-
     in_tx = {
         "Transaction Type": "Buy",
         **make_common_fields(row, "-buy"),
@@ -122,7 +125,6 @@ def convert_trade(row):
         "Crypto In": row["IN Amount"],
         "Notes": "generated Buy-side of trade"
     }
-
     return [in_tx], [out_tx, *fee_txs]
 
 def convert_row(row, in_writer, out_writer):
@@ -146,11 +148,10 @@ def convert_csv():
          open(in_filename, "w", encoding="utf-8") as in_file, \
          open(out_filename, "w", encoding="utf-8") as out_file:
 
-        # Set up CSV writers
-        # Timestamp, Type, IN Amount, IN Currency, Out Amount, Out Currency, Fee Amount, Fee Currency, Exchange(optional), US Based, Txid
+        # ZenLedger csv fields for reading: Timestamp, Type, IN Amount, IN Currency, Out Amount, Out Currency, Fee Amount, Fee Currency, Exchange(optional), US Based, Txid
         zenledger_reader = csv.DictReader(zenledger_file)
-        in_writer = csv.DictWriter(in_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto In", "Crypto Fee", "USD In No Fee", "USD In With Fee", "USD Fee", "Notes"])
-        out_writer = csv.DictWriter(out_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto Out No Fee", "Crypto Fee", "Crypto Out With Fee", "USD Out No Fee", "USD Fee", "Notes"])
+        in_writer = csv.DictWriter(in_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto In", "Crypto Fee", "USD In No Fee", "USD In With Fee", "USD Fee", "fiat_ticker", "Notes"])
+        out_writer = csv.DictWriter(out_file, fieldnames=["Unique ID", "Timestamp", "Asset", "Exchange", "Holder", "Transaction Type", "Spot Price", "Crypto Out No Fee", "Crypto Fee", "Crypto Out With Fee", "USD Out No Fee", "USD Fee", "fiat_ticker", "Notes"])
 
         in_writer.writeheader()
         out_writer.writeheader()
