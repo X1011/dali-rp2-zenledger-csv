@@ -59,9 +59,9 @@ def calculate_fee(row, asset_currency):
     else:
         return {}
 
-def prepare_fee_transaction(row, unique_id_suffix):
+def prepare_fee_transaction(row):
     return {
-        "Unique ID": f"{row['Txid']}-{unique_id_suffix}",
+        "Unique ID": row['Txid']+ "-fee",
         "Timestamp": format_timestamp(row["Timestamp"]),
         "Exchange": row["Exchange(optional)"],
         "Holder": "unknown",
