@@ -77,8 +77,7 @@ def prepare_common_fields(row, asset_currency):
         **fee_info
     }
 
-def in_transaction(row):
-    transaction_type = type_map.get(row["Type"], "Unknown")
+def in_transaction(row, transaction_type):
     asset_currency = row["IN Currency"]
     common_fields = prepare_common_fields(row, asset_currency)
 
@@ -90,8 +89,7 @@ def in_transaction(row):
         "USD In No Fee": row["Out Amount"]
     }], []
 
-def out_transaction(row):
-    transaction_type = type_map.get(row["Type"], "Unknown")
+def out_transaction(row, transaction_type):
     asset_currency = row["Out Currency"]
     common_fields = prepare_common_fields(row, asset_currency)
 
@@ -105,7 +103,7 @@ def out_transaction(row):
 
 def trade_transaction(row):
     in_tx = {
-        "Transaction Type": type_map.get(row["Type"], "Unknown"),
+        "Transaction Type": "Buy",
         **prepare_common_fields(row, row["IN Currency"]),
         "Asset": row["IN Currency"],
         "Crypto In": row["IN Amount"],
@@ -113,7 +111,7 @@ def trade_transaction(row):
     }
 
     out_tx = {
-        "Transaction Type": type_map.get(row["Type"], "Unknown"),
+        "Transaction Type": "Sell",
         **prepare_common_fields(row, row["Out Currency"]),
         "Asset": row["Out Currency"],
         "Crypto Out No Fee": row["Out Amount"],
@@ -128,9 +126,9 @@ def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
 
     if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
-        in_tx, out_tx = in_transaction(row)
+        in_tx, out_tx = in_transaction(row, transaction_type)
     elif transaction_type in ["Send", "Sell", "Fee"]:
-        in_tx, out_tx = out_transaction(row)
+        in_tx, out_tx = out_transaction(row, transaction_type)
     elif transaction_type == "trade":
         in_tx, out_tx = trade_transaction(row)
     else:
