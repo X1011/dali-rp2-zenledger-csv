@@ -107,7 +107,6 @@ def trade_transaction(row):
         **prepare_common_fields(row, row["IN Currency"]),
         "Asset": row["IN Currency"],
         "Crypto In": row["IN Amount"],
-        "USD In No Fee": row["Out Amount"]
     }
 
     out_tx = {
@@ -115,7 +114,6 @@ def trade_transaction(row):
         **prepare_common_fields(row, row["Out Currency"]),
         "Asset": row["Out Currency"],
         "Crypto Out No Fee": row["Out Amount"],
-        "USD Out No Fee": row["IN Amount"]
     }
 
     fee_tx = prepare_fee_transaction(row)
