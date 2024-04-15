@@ -63,44 +63,46 @@ def make_fee_transaction(row):
     }
 
 def calculate_fee(row, asset_currency):
+    amount = row["Fee Amount"]
+    if amount <= 0:
+        return {}, []
+
+    fee_entry = {}
     if row["Fee Currency"] == "USD":
-        return {"USD Fee": row["Fee Amount"]}
+        fee_entry = {"USD Fee": amount}
     elif row["Fee Currency"] == asset_currency:
-        return {"Crypto Fee": row["Fee Amount"]}
-    else:
-        return {}
+        fee_entry = {"Crypto Fee": amount}
 
-def in_transaction(row, transaction_type):
+    fee_txs = [] if fee_entry else [make_fee_transaction(row)]
+    return fee_entry, fee_txs
+
+def convert_incoming(row, transaction_type):
     asset_currency = row["IN Currency"]
-    common_fields = make_common_fields(row)
-
-    fee_info = calculate_fee(row, asset_currency) if row["Fee Amount"] > 0 else {}
-
+    fee_entry, fee_txs = calculate_fee(row, asset_currency)
+    
     return [{
         "Transaction Type": transaction_type,
-        **common_fields,
+        **make_common_fields(row),
         "Asset": asset_currency,
         "Crypto In": row["IN Amount"],
         "USD In No Fee": row["Out Amount"],
-        **fee_info
-    }], []
+        **fee_entry
+    }], fee_txs
 
-def out_transaction(row, transaction_type):
+def convert_outgoing(row, transaction_type):
     asset_currency = row["Out Currency"]
-    common_fields = make_common_fields(row)
-
-    fee_info = calculate_fee(row, asset_currency) if row["Fee Amount"] > 0 else {}
+    fee_entry, fee_txs = calculate_fee(row, asset_currency)
 
     return [], [{
         "Transaction Type": transaction_type,
-        **common_fields,
+        **make_common_fields(row),
         "Asset": asset_currency,
         "Crypto Out No Fee": row["Out Amount"],
         "USD Out No Fee": row["IN Amount"],
-        **fee_info
-    }]
+        **fee_entry
+    }, *fee_txs]
 
-def trade_transaction(row):
+def convert_trade(row):
     in_tx = {
         "Transaction Type": "Buy",
         **make_common_fields(row, "-buy"),
@@ -117,19 +119,19 @@ def trade_transaction(row):
         "Notes": "generated Sell-side of trade"
     }
 
-    fee_tx = make_fee_transaction(row) if row["Fee Amount"] > 0 else None
+    fee_txs = [make_fee_transaction(row)] if row["Fee Amount"] > 0 else []
 
-    return [in_tx], [out_tx, fee_tx] if fee_tx else [out_tx]
+    return [in_tx], [out_tx, *fee_txs]
 
 def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
 
     if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
-        in_txs, out_txs = in_transaction(row, transaction_type)
+        in_txs, out_txs = convert_incoming(row, transaction_type)
     elif transaction_type in ["Send", "Sell", "Fee"]:
-        in_txs, out_txs = out_transaction(row, transaction_type)
+        in_txs, out_txs = convert_outgoing(row, transaction_type)
     elif transaction_type == "trade":
-        in_txs, out_txs = trade_transaction(row)
+        in_txs, out_txs = convert_trade(row)
     else:
         print(f"Skipping unknown transaction type: {row['Type']}")
         return
