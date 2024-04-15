@@ -40,19 +40,35 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
     else:
         return "__unknown"
 
-def prepare_common_fields(row):
-    if row["Fee Currency"] == "USD":
-        fee = {"USD Fee": row["Fee Amount"]}
+def calculate_fee(row, asset_currency):
+    if row["Fee Currency"] == asset_currency:
+        return {"Crypto Fee": row["Fee Amount"]}
     else:
-        fee = {"Crypto Fee": row["Fee Amount"]}
+        return {"USD Fee": row["Fee Amount"]} if row["Fee Currency"] == "USD" else {}
 
+def prepare_fee_transaction(row, unique_id_suffix):
+    return {
+        "Unique ID": f"{row['Txid']}-{unique_id_suffix}",
+        "Timestamp": format_timestamp(row["Timestamp"]),
+        "Exchange": row["Exchange(optional)"],
+        "Holder": "unknown",
+        "Spot Price": "__unknown",  # Spot price unknown for fee-only transaction
+        "Transaction Type": "Fee",
+        "Asset": row["Fee Currency"],
+        "USD Fee": row["Fee Amount"] if row["Fee Currency"] == "USD" else None,
+        "Crypto Fee": row["Fee Amount"] if row["Fee Currency"] != "USD" else None,
+        "Notes": "Fee transaction"
+    }
+
+def prepare_common_fields(row, asset_currency):
+    fee_info = calculate_fee(row, asset_currency)
     return {
         "Unique ID": row["Txid"],
         "Timestamp": format_timestamp(row["Timestamp"]),
         "Exchange": row["Exchange(optional)"],
         "Holder": "unknown",  # not provided in the input
         "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
-        **fee
+        **fee_info
     }
 
 def convert_csv():
@@ -70,7 +86,13 @@ def convert_csv():
         out_writer.writeheader()
 
         for row in zenledger_reader:
-            common_fields = prepare_common_fields(row)
+            # Determine Asset currency based on transaction type
+            asset_currency = row["IN Currency"] if transaction_type in ["Receive", "Buy", "Interest", "Staking"] else row["Out Currency"]
+            common_fields = prepare_common_fields(row, asset_currency)
+
+            # Check if a separate fee transaction is needed
+            if row["Fee Currency"] != asset_currency:
+                out_writer.writerow(prepare_fee_transaction(row, "FEE"))
             transaction_type = type_map.get(row["Type"], "Unknown")
 
             if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
