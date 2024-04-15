@@ -50,12 +50,15 @@ def make_common_fields(row, id_suffix=''):
     }
 
 def make_fee_transaction(row):
+    currency = row["Fee Currency"]
+    amount = row["Fee Amount"]
     return {
         "Transaction Type": "Fee",
         **make_common_fields(row, "-fee"),
+        "Asset": currency,
         "Spot Price": "__unknown",
-        "USD Fee": row["Fee Amount"] if row["Fee Currency"] == "USD" else None,
-        "Crypto Fee": row["Fee Amount"] if row["Fee Currency"] != "USD" else None,
+        "USD Fee":    amount if currency == "USD" else None,
+        "Crypto Fee": amount if currency != "USD" else None,
         "Notes": "generated Fee transaction"
     }
 
