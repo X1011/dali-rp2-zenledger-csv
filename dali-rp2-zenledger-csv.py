@@ -103,14 +103,6 @@ def convert_outgoing(row, transaction_type):
     }, *fee_txs]
 
 def convert_trade(row):
-    in_tx = {
-        "Transaction Type": "Buy",
-        **make_common_fields(row, "-buy"),
-        "Asset": row["IN Currency"],
-        "Crypto In": row["IN Amount"],
-        "Notes": "generated Buy-side of trade"
-    }
-
     fee_entry, fee_txs = calculate_fee(row, row["Out Currency"])
     out_tx = {
         "Transaction Type": "Sell",
@@ -119,6 +111,14 @@ def convert_trade(row):
         "Crypto Out No Fee": row["Out Amount"],
         "Notes": "generated Sell-side of trade",
         **fee_entry
+    }
+
+    in_tx = {
+        "Transaction Type": "Buy",
+        **make_common_fields(row, "-buy"),
+        "Asset": row["IN Currency"],
+        "Crypto In": row["IN Amount"],
+        "Notes": "generated Buy-side of trade"
     }
 
     return [in_tx], [out_tx, *fee_txs]
