@@ -40,6 +40,17 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
     else:
         return "__unknown"
 
+def prepare_common_fields(row, asset_currency):
+    fee_info = calculate_fee(row, asset_currency)
+    return {
+        "Unique ID": row["Txid"],
+        "Timestamp": format_timestamp(row["Timestamp"]),
+        "Exchange": row["Exchange(optional)"],
+        "Holder": "unknown",  # not provided in the input
+        "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
+        **fee_info
+    }
+
 def calculate_fee(row, asset_currency):
     if row["Fee Currency"] == "USD":
         return {"USD Fee": row["Fee Amount"]}
@@ -67,7 +78,6 @@ def write_in_tx(row, in_writer, out_writer):
     asset_currency = row["IN Currency"]
     common_fields = prepare_common_fields(row, asset_currency)
 
-    # Write the main in transaction
     in_writer.writerow({
         "Transaction Type": transaction_type,
         **common_fields,
@@ -81,7 +91,6 @@ def write_out_tx(row, out_writer):
     asset_currency = row["Out Currency"]
     common_fields = prepare_common_fields(row, asset_currency)
 
-    # Write the main out transaction
     out_writer.writerow({
         "Transaction Type": transaction_type,
         **common_fields,
@@ -94,16 +103,6 @@ def write_fee_tx(row, in_writer, out_writer):
     if row["Fee Amount"] > 0:
         out_writer.writerow(prepare_fee_transaction(row))
 
-def prepare_common_fields(row, asset_currency):
-    fee_info = calculate_fee(row, asset_currency)
-    return {
-        "Unique ID": row["Txid"],
-        "Timestamp": format_timestamp(row["Timestamp"]),
-        "Exchange": row["Exchange(optional)"],
-        "Holder": "unknown",  # not provided in the input
-        "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
-        **fee_info
-    }
 
 def convert_csv():
     with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
