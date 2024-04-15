@@ -40,17 +40,6 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
     else:
         return "__unknown"
 
-def prepare_common_fields(row, asset_currency):
-    fee_info = calculate_fee(row, asset_currency)
-    return {
-        "Unique ID": row["Txid"],
-        "Timestamp": format_timestamp(row["Timestamp"]),
-        "Exchange": row["Exchange(optional)"],
-        "Holder": "unknown",  # not provided in the input
-        "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
-        **fee_info
-    }
-
 def calculate_fee(row, asset_currency):
     if row["Fee Currency"] == "USD":
         return {"USD Fee": row["Fee Amount"]}
@@ -71,6 +60,21 @@ def prepare_fee_transaction(row):
         "USD Fee": row["Fee Amount"] if row["Fee Currency"] == "USD" else None,
         "Crypto Fee": row["Fee Amount"] if row["Fee Currency"] != "USD" else None,
         "Notes": "Fee transaction"
+    }
+
+def write_fee_tx(row, in_writer, out_writer):
+    if row["Fee Amount"] > 0:
+        out_writer.writerow(prepare_fee_transaction(row))
+
+def prepare_common_fields(row, asset_currency):
+    fee_info = calculate_fee(row, asset_currency)
+    return {
+        "Unique ID": row["Txid"],
+        "Timestamp": format_timestamp(row["Timestamp"]),
+        "Exchange": row["Exchange(optional)"],
+        "Holder": "unknown",  # not provided in the input
+        "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
+        **fee_info
     }
 
 def write_in_tx(row, in_writer, out_writer):
@@ -98,10 +102,6 @@ def write_out_tx(row, out_writer):
         "Crypto Out No Fee": row["Out Amount"],
         "USD Out No Fee": row["IN Amount"],
     })
-
-def write_fee_tx(row, in_writer, out_writer):
-    if row["Fee Amount"] > 0:
-        out_writer.writerow(prepare_fee_transaction(row))
 
 def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
