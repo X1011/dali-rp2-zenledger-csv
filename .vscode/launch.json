@@ -1,0 +1,12 @@
+{
+	"configurations": [
+		{
+			"name": "Python script",
+			"type": "python",
+			"request": "launch",
+			"program": "dali-rp2-zenledger-csv.py",
+			"args": ["tx-zenledger_sample.csv"],
+			"justMyCode": true
+		}
+	]
+}
