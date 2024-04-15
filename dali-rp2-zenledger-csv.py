@@ -40,13 +40,14 @@ def calculate_spot_price(in_currency, in_amount, out_currency, out_amount):
     else:
         return "__unknown"
 
-def calculate_fee(row, asset_currency):
-    if row["Fee Currency"] == "USD":
-        return {"USD Fee": row["Fee Amount"]}
-    elif row["Fee Currency"] == asset_currency:
-        return {"Crypto Fee": row["Fee Amount"]}
-    else:
-        return {}
+def make_common_fields(row, id_suffix=''):
+    return {
+        "Unique ID": row["Txid"] + id_suffix,
+        "Timestamp": format_timestamp(row["Timestamp"]),
+        "Exchange": row["Exchange(optional)"],
+        "Holder": "unknown",  # not provided in the input
+        "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
+    }
 
 def make_fee_transaction(row):
     return {
@@ -58,14 +59,13 @@ def make_fee_transaction(row):
         "Notes": "Fee transaction"
     }
 
-def make_common_fields(row, id_suffix=''):
-    return {
-        "Unique ID": row["Txid"] + id_suffix,
-        "Timestamp": format_timestamp(row["Timestamp"]),
-        "Exchange": row["Exchange(optional)"],
-        "Holder": "unknown",  # not provided in the input
-        "Spot Price": calculate_spot_price(row["IN Currency"], row["IN Amount"], row["Out Currency"], row["Out Amount"]),
-    }
+def calculate_fee(row, asset_currency):
+    if row["Fee Currency"] == "USD":
+        return {"USD Fee": row["Fee Amount"]}
+    elif row["Fee Currency"] == asset_currency:
+        return {"Crypto Fee": row["Fee Amount"]}
+    else:
+        return {}
 
 def in_transaction(row, transaction_type):
     asset_currency = row["IN Currency"]
