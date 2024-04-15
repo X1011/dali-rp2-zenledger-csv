@@ -56,7 +56,7 @@ def make_fee_transaction(row):
         "Spot Price": "__unknown",
         "USD Fee": row["Fee Amount"] if row["Fee Currency"] == "USD" else None,
         "Crypto Fee": row["Fee Amount"] if row["Fee Currency"] != "USD" else None,
-        "Notes": "Fee transaction"
+        "Notes": "generated Fee transaction"
     }
 
 def calculate_fee(row, asset_currency):
@@ -103,6 +103,7 @@ def trade_transaction(row):
         **make_common_fields(row, "-buy"),
         "Asset": row["IN Currency"],
         "Crypto In": row["IN Amount"],
+        "Notes": "generated Buy-side of trade"
     }
 
     out_tx = {
@@ -110,6 +111,7 @@ def trade_transaction(row):
         **make_common_fields(row, "-sell"),
         "Asset": row["Out Currency"],
         "Crypto Out No Fee": row["Out Amount"],
+        "Notes": "generated Sell-side of trade"
     }
 
     fee_tx = make_fee_transaction(row) if row["Fee Amount"] > 0 else None
