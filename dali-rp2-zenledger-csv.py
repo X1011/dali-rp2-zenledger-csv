@@ -135,9 +135,9 @@ def convert_row(row, in_writer, out_writer):
     else:
         print(f"Skipping unknown transaction type: {row['Type']}")
         return
-
-    map(in_writer.writerow, in_txs)
-    map(out_writer.writerow, out_txs)
+    
+    for tx in in_txs:  in_writer.writerow(tx)
+    for tx in out_txs: out_writer.writerow(tx)
     
 def convert_csv():
     with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
