@@ -77,32 +77,6 @@ def prepare_common_fields(row, asset_currency):
         **fee_info
     }
 
-def write_in_tx(row, in_writer, out_writer):
-    transaction_type = type_map.get(row["Type"], "Unknown")
-    asset_currency = row["IN Currency"]
-    common_fields = prepare_common_fields(row, asset_currency)
-
-    in_writer.writerow({
-        "Transaction Type": transaction_type,
-        **common_fields,
-        "Asset": asset_currency,
-        "Crypto In": row["IN Amount"],
-        "USD In No Fee": row["Out Amount"],
-    })
-
-def write_out_tx(row, out_writer):
-    transaction_type = type_map.get(row["Type"], "Unknown")
-    asset_currency = row["Out Currency"]
-    common_fields = prepare_common_fields(row, asset_currency)
-
-    out_writer.writerow({
-        "Transaction Type": transaction_type,
-        **common_fields,
-        "Asset": asset_currency,
-        "Crypto Out No Fee": row["Out Amount"],
-        "USD Out No Fee": row["IN Amount"],
-    })
-
 def in_transaction(row):
     transaction_type = type_map.get(row["Type"], "Unknown")
     asset_currency = row["IN Currency"]
@@ -152,20 +126,16 @@ def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
 
     if transaction_type == "trade":
-        in_tx, out_tx, fee_tx = trade_transaction(row)
-        write_out_tx(out_tx, out_writer)
-        write_in_tx(in_tx, in_writer, out_writer)
-        write_fee_tx(fee_tx, in_writer, out_writer)
+        in_tx, out_tx = trade_transaction(row)
     elif transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
         in_tx = in_transaction(row)
-        write_in_tx(in_tx, in_writer, out_writer)
-        write_fee_tx(row, in_writer, out_writer)
     elif transaction_type in ["Send", "Sell", "Fee"]:
         out_tx = out_transaction(row)
-        write_out_tx(out_tx, out_writer)
-        write_fee_tx(row, in_writer, out_writer)
     else:
         print(f"Skipping unknown transaction type: {row['Type']}")
+    
+    in_writer.writerow(in_tx)
+    out_writer.writerow(out_tx)
 
 def convert_csv():
     with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
