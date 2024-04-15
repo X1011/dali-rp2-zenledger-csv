@@ -82,26 +82,26 @@ def in_transaction(row):
     asset_currency = row["IN Currency"]
     common_fields = prepare_common_fields(row, asset_currency)
 
-    return {
+    return [{
         "Transaction Type": transaction_type,
         **common_fields,
         "Asset": asset_currency,
         "Crypto In": row["IN Amount"],
         "USD In No Fee": row["Out Amount"]
-    }
+    }], []
 
 def out_transaction(row):
     transaction_type = type_map.get(row["Type"], "Unknown")
     asset_currency = row["Out Currency"]
     common_fields = prepare_common_fields(row, asset_currency)
 
-    return {
+    return [], [{
         "Transaction Type": transaction_type,
         **common_fields,
         "Asset": asset_currency,
         "Crypto Out No Fee": row["Out Amount"],
         "USD Out No Fee": row["IN Amount"]
-    }
+    }]
 
 def trade_transaction(row):
     in_tx = {
@@ -111,6 +111,7 @@ def trade_transaction(row):
         "Crypto In": row["IN Amount"],
         "USD In No Fee": row["Out Amount"]
     }
+
     out_tx = {
         "Transaction Type": type_map.get(row["Type"], "Unknown"),
         **prepare_common_fields(row, row["Out Currency"]),
@@ -118,9 +119,10 @@ def trade_transaction(row):
         "Crypto Out No Fee": row["Out Amount"],
         "USD Out No Fee": row["IN Amount"]
     }
+
     fee_tx = prepare_fee_transaction(row)
 
-    return in_tx, out_tx, fee_tx
+    return [in_tx], [out_tx, fee_tx]
 
 def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
@@ -128,15 +130,16 @@ def convert_row(row, in_writer, out_writer):
     if transaction_type == "trade":
         in_tx, out_tx = trade_transaction(row)
     elif transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
-        in_tx = in_transaction(row)
+        in_tx, out_tx = in_transaction(row)
     elif transaction_type in ["Send", "Sell", "Fee"]:
-        out_tx = out_transaction(row)
+        in_tx, out_tx = out_transaction(row)
     else:
         print(f"Skipping unknown transaction type: {row['Type']}")
-    
-    in_writer.writerow(in_tx)
-    out_writer.writerow(out_tx)
+        return
 
+    map(in_writer.writerow, in_tx)
+    map(out_writer.writerow, out_tx)
+    
 def convert_csv():
     with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
          open(in_filename, "w", encoding="utf-8") as in_file, \
