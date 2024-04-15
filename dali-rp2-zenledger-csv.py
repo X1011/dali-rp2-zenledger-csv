@@ -81,7 +81,8 @@ def convert_incoming(row, transaction_type):
     fee_entry, fee_txs = calculate_fee(row, asset_currency)
     
     return [{
-        "Transaction Type": transaction_type,
+        # override the transaction type for receive so DalI will accept it, then it should match it up with the outgoing side later by id
+        "Transaction Type": transaction_type if transaction_type != "Receive" else "Gift",
         **make_common_fields(row),
         "Asset": asset_currency,
         "Crypto In": row["IN Amount"],
@@ -94,7 +95,8 @@ def convert_outgoing(row, transaction_type):
     fee_entry, fee_txs = calculate_fee(row, asset_currency)
 
     return [], [{
-        "Transaction Type": transaction_type,
+        # override the transaction type for send so DalI will accept it, then it should match it up with the incoming side later by id
+        "Transaction Type": transaction_type if transaction_type != "Send" else "Gift",
         **make_common_fields(row),
         "Asset": asset_currency,
         "Crypto Out No Fee": row["Out Amount"],
