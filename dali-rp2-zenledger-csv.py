@@ -85,8 +85,8 @@ def convert_incoming(row, transaction_type):
     fee_entry, fee_txs = calculate_fee(row, asset_currency, outgoing=False)
     
     return [{
-        # override the transaction type for receive so DalI will accept it, then it should match it up with the outgoing side later by id
-        "Transaction Type": transaction_type if transaction_type != "Receive" else "Gift",
+        # override the receive transaction type to one DalI will recognize. If it is part of a transfer, it should match up with the outgoing side later by id. Otherwise, it may be a random airdrop.
+        "Transaction Type": transaction_type if transaction_type != "Receive" else "Airdrop",
         **make_common_fields(row),
         "Asset": asset_currency,
         "Crypto In": row["IN Amount"],
@@ -99,7 +99,7 @@ def convert_outgoing(row, transaction_type):
     fee_entry, fee_txs = calculate_fee(row, asset_currency, outgoing=True)
 
     return [], [{
-        # override the transaction type for send so DalI will accept it, then it should match it up with the incoming side later by id
+        # override the send transaction type to one DalI will recognize, then it should match up with the incoming side later by id. If it got lost, however, consider it a gift.
         "Transaction Type": transaction_type if transaction_type != "Send" else "Gift",
         **make_common_fields(row),
         "Asset": asset_currency,
