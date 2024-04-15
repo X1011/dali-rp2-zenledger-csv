@@ -48,15 +48,11 @@ def calculate_fee(row, asset_currency):
     else:
         return {}
 
-def prepare_fee_transaction(row):
+def make_fee_transaction(row):
     return {
-        "Unique ID": row['Txid']+ "-fee",
-        "Timestamp": format_timestamp(row["Timestamp"]),
-        "Exchange": row["Exchange(optional)"],
-        "Holder": "unknown",
-        "Spot Price": "__unknown",  # Spot price unknown for fee-only transaction
         "Transaction Type": "Fee",
-        "Asset": row["Fee Currency"],
+        **make_common_fields(row, "-fee"),
+        "Spot Price": "__unknown",
         "USD Fee": row["Fee Amount"] if row["Fee Currency"] == "USD" else None,
         "Crypto Fee": row["Fee Amount"] if row["Fee Currency"] != "USD" else None,
         "Notes": "Fee transaction"
@@ -64,12 +60,12 @@ def prepare_fee_transaction(row):
 
 def write_fee_tx(row, in_writer, out_writer):
     if row["Fee Amount"] > 0:
-        out_writer.writerow(prepare_fee_transaction(row))
+        out_writer.writerow(make_fee_transaction(row))
 
-def prepare_common_fields(row, asset_currency):
-    fee_info = calculate_fee(row, asset_currency)
+def make_common_fields(row, id_suffix=''):
+    fee_info = calculate_fee(row, asset)
     return {
-        "Unique ID": row["Txid"],
+        "Unique ID": row["Txid"] + id_suffix,
         "Timestamp": format_timestamp(row["Timestamp"]),
         "Exchange": row["Exchange(optional)"],
         "Holder": "unknown",  # not provided in the input
@@ -79,7 +75,7 @@ def prepare_common_fields(row, asset_currency):
 
 def in_transaction(row, transaction_type):
     asset_currency = row["IN Currency"]
-    common_fields = prepare_common_fields(row, asset_currency)
+    common_fields = make_common_fields(row)
 
     return [{
         "Transaction Type": transaction_type,
@@ -91,7 +87,7 @@ def in_transaction(row, transaction_type):
 
 def out_transaction(row, transaction_type):
     asset_currency = row["Out Currency"]
-    common_fields = prepare_common_fields(row, asset_currency)
+    common_fields = make_common_fields(row)
 
     return [], [{
         "Transaction Type": transaction_type,
@@ -104,19 +100,19 @@ def out_transaction(row, transaction_type):
 def trade_transaction(row):
     in_tx = {
         "Transaction Type": "Buy",
-        **prepare_common_fields(row, row["IN Currency"]),
+        **make_common_fields(row, "-buy"),
         "Asset": row["IN Currency"],
         "Crypto In": row["IN Amount"],
     }
 
     out_tx = {
         "Transaction Type": "Sell",
-        **prepare_common_fields(row, row["Out Currency"]),
+        **make_common_fields(row, "-sell"),
         "Asset": row["Out Currency"],
         "Crypto Out No Fee": row["Out Amount"],
     }
 
-    fee_tx = prepare_fee_transaction(row)
+    fee_tx = make_fee_transaction(row)
 
     return [in_tx], [out_tx, fee_tx]
 
@@ -124,17 +120,17 @@ def convert_row(row, in_writer, out_writer):
     transaction_type = type_map.get(row["Type"], "Unknown")
 
     if transaction_type in ["Receive", "Buy", "Interest", "Staking"]:
-        in_tx, out_tx = in_transaction(row, transaction_type)
+        in_txs, out_txs = in_transaction(row, transaction_type)
     elif transaction_type in ["Send", "Sell", "Fee"]:
-        in_tx, out_tx = out_transaction(row, transaction_type)
+        in_txs, out_txs = out_transaction(row, transaction_type)
     elif transaction_type == "trade":
-        in_tx, out_tx = trade_transaction(row)
+        in_txs, out_txs = trade_transaction(row)
     else:
         print(f"Skipping unknown transaction type: {row['Type']}")
         return
 
-    map(in_writer.writerow, in_tx)
-    map(out_writer.writerow, out_tx)
+    map(in_writer.writerow, in_txs)
+    map(out_writer.writerow, out_txs)
     
 def convert_csv():
     with open(args.zenledger_filename, "r", encoding="utf-8") as zenledger_file, \
