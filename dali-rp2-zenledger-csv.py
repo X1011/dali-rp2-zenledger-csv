@@ -58,7 +58,7 @@ def make_fee_transaction(row):
         "Asset": currency,
         "Spot Price": "__unknown",
         "USD Fee":    amount if currency == "USD" else None,
-        "Crypto Fee": amount if currency != "USD" else "0", # DalI requires explicit Crypto Fee for outgoing transactions
+        "Crypto Fee": amount if currency != "USD" else "0", # DaLI requires explicit Crypto Fee for outgoing transactions
         "Crypto Out No Fee": "0",
         "Notes": "generated Fee transaction"
     }
@@ -69,7 +69,7 @@ def calculate_fee(row, asset_currency, outgoing: bool):
         return {"Crypto Fee": "0"}, []
     
     elif row["Fee Currency"] == "USD":
-        # DalI requires an explicit Crypto Fee entry for outgoing transactions, but does not accept both Crypto and USD fee entries for incoming, so we need to special case it
+        # DaLI requires an explicit Crypto Fee entry for outgoing transactions, but does not accept both Crypto and USD fee entries for incoming, so we need to special case it
         if outgoing:
             return {"USD Fee": amount, "Crypto Fee": "0"}, []
         else:
@@ -85,7 +85,7 @@ def convert_incoming(row, transaction_type):
     fee_entry, fee_txs = calculate_fee(row, asset_currency, outgoing=False)
     
     return [{
-        # override the receive transaction type to one DalI will recognize. If it is part of a transfer, it should match up with the outgoing side later by id. Otherwise, it may be a random airdrop.
+        # override the receive transaction type to one DaLI will recognize. If it is part of a transfer, it should match up with the outgoing side later by id. Otherwise, it may be a random airdrop.
         "Transaction Type": transaction_type if transaction_type != "Receive" else "Airdrop",
         **make_common_fields(row),
         "Asset": asset_currency,
@@ -99,7 +99,7 @@ def convert_outgoing(row, transaction_type):
     fee_entry, fee_txs = calculate_fee(row, asset_currency, outgoing=True)
 
     return [], [{
-        # override the send transaction type to one DalI will recognize, then it should match up with the incoming side later by id. If it got lost, however, consider it a gift.
+        # override the send transaction type to one DaLI will recognize, then it should match up with the incoming side later by id. If it got lost, however, consider it a gift.
         "Transaction Type": transaction_type if transaction_type != "Send" else "Gift",
         **make_common_fields(row),
         "Asset": asset_currency,
